@@ -7,45 +7,40 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ Set allowed frontend origins
-const allowedOrigins = [
-  'https://indatwa-cient.vercel.app',
-  'https://indatwaevents.com',
-  'https://www.indatwaevents.com'
-];
+// ✅ Set your frontend origin
+const allowedOrigins = ['https://indatwa-cient.vercel.app'];
 
-// ✅ Configure CORS
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('CORS not allowed'));
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
 
+app.use(express.json());
 
-
-// ✅ Connect to PostgreSQL
+// PostgreSQL connection (Supabase)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
+// Test DB connection
 pool.connect()
   .then(client => {
-    console.log('✅ Connected to Supabase PostgreSQL database');
+    console.log('✅ Connected to Supabase PostgreSQL database successfully');
     client.release();
   })
   .catch(err => {
-    console.error('❌ Error connecting to PostgreSQL:', err.message);
+    console.error('❌ Error connecting to Supabase PostgreSQL:', err.message);
   });
 
-// ✅ LOGIN route
+// LOGIN route
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -58,6 +53,7 @@ app.post('/api/login', async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
+
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid username or password' });
     }
@@ -75,7 +71,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ✅ CREATE booking
+// CREATE booking
 app.post('/api/bookings', async (req, res) => {
   try {
     const {
@@ -104,7 +100,7 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
-// ✅ READ all bookings
+// READ all bookings
 app.get('/api/bookings', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM bookings ORDER BY created_at DESC');
@@ -115,7 +111,7 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// ✅ READ single booking
+// READ single booking
 app.get('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -130,7 +126,7 @@ app.get('/api/bookings/:id', async (req, res) => {
   }
 });
 
-// ✅ UPDATE booking
+// UPDATE booking
 app.put('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   const {
@@ -157,10 +153,12 @@ app.put('/api/bookings/:id', async (req, res) => {
 
     const values = [
       name, email, phone, service, eventType,
-      date, time, location, guests, duration, notes, id
+      date, time, location, guests, duration, notes,
+      id
     ];
 
     const result = await pool.query(query, values);
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Booking not found' });
     }
@@ -172,14 +170,17 @@ app.put('/api/bookings/:id', async (req, res) => {
   }
 });
 
-// ✅ DELETE booking
+// DELETE booking
 app.delete('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
+
   try {
     const result = await pool.query('DELETE FROM bookings WHERE id = $1 RETURNING *', [id]);
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Booking not found' });
     }
+
     res.json({ message: 'Booking deleted successfully' });
   } catch (err) {
     console.error('Delete booking error:', err.message);
@@ -187,7 +188,7 @@ app.delete('/api/bookings/:id', async (req, res) => {
   }
 });
 
-// ✅ GET all users
+// GET all users
 app.get('/api/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC');
@@ -198,7 +199,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// ✅ CREATE user
+// CREATE user
 app.post('/api/users', async (req, res) => {
   const { username, password, role } = req.body;
   if (!username || !password || !role) {
@@ -224,7 +225,7 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// ✅ UPDATE user
+// UPDATE user
 app.put('/api/users/:id', async (req, res) => {
   const { id } = req.params;
   const { username, password, role } = req.body;
@@ -261,14 +262,17 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
-// ✅ DELETE user
+// DELETE user
 app.delete('/api/users/:id', async (req, res) => {
   const { id } = req.params;
+
   try {
     const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
+
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     console.error('Delete user error:', err.message);
@@ -276,10 +280,7 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// ✅ Start the server
+// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
-
-
-//New changes please
