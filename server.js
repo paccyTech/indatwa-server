@@ -7,13 +7,14 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ Set your frontend origin
+// ✅ Frontend URLs allowed to access this server
 const allowedOrigins = [
   'https://indatwa-cient.vercel.app',
-  'https://indatwaevents.com'
+  'https://www.indatwaevents.com'
 ];
 
-app.use(cors({
+// ✅ Reusable CORS options
+const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -23,17 +24,23 @@ app.use(cors({
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
-}));
+};
+
+// ✅ Apply CORS to all routes
+app.use(cors(corsOptions));
+
+// ✅ Allow preflight OPTIONS requests
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 
-// PostgreSQL connection (Supabase)
+// ✅ PostgreSQL connection (Supabase)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Test DB connection
+// ✅ Test DB connection
 pool.connect()
   .then(client => {
     console.log('✅ Connected to Supabase PostgreSQL database successfully');
@@ -43,7 +50,8 @@ pool.connect()
     console.error('❌ Error connecting to Supabase PostgreSQL:', err.message);
   });
 
-// LOGIN route
+
+// ✅ LOGIN route
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -74,7 +82,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// CREATE booking
+// ✅ CREATE booking
 app.post('/api/bookings', async (req, res) => {
   try {
     const {
@@ -103,7 +111,7 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
-// READ all bookings
+// ✅ READ all bookings
 app.get('/api/bookings', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM bookings ORDER BY created_at DESC');
@@ -114,7 +122,7 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// READ single booking
+// ✅ READ single booking
 app.get('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -129,7 +137,7 @@ app.get('/api/bookings/:id', async (req, res) => {
   }
 });
 
-// UPDATE booking
+// ✅ UPDATE booking
 app.put('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   const {
@@ -173,7 +181,7 @@ app.put('/api/bookings/:id', async (req, res) => {
   }
 });
 
-// DELETE booking
+// ✅ DELETE booking
 app.delete('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -191,7 +199,7 @@ app.delete('/api/bookings/:id', async (req, res) => {
   }
 });
 
-// GET all users
+// ✅ GET all users
 app.get('/api/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC');
@@ -202,7 +210,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// CREATE user
+// ✅ CREATE user
 app.post('/api/users', async (req, res) => {
   const { username, password, role } = req.body;
   if (!username || !password || !role) {
@@ -228,7 +236,7 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// UPDATE user
+// ✅ UPDATE user
 app.put('/api/users/:id', async (req, res) => {
   const { id } = req.params;
   const { username, password, role } = req.body;
@@ -265,7 +273,7 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
-// DELETE user
+// ✅ DELETE user
 app.delete('/api/users/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -283,7 +291,7 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Start server
+// ✅ Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
