@@ -13,7 +13,19 @@ const allowedOrigins = [
   'https://www.indatwaevents.com'
 ];
 
-// ✅ Reusable CORS options
+// ✅ Apply global headers to ALL requests (fix for Render CORS issues)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
+
+// ✅ CORS fallback for structured handling
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -25,31 +37,29 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 };
-
-// ✅ Apply CORS to all routes
 app.use(cors(corsOptions));
 
-// ✅ Allow preflight OPTIONS requests
+// ✅ Accept preflight OPTIONS requests globally
 app.options('*', cors(corsOptions));
 
+// ✅ Parse JSON
 app.use(express.json());
 
-// ✅ PostgreSQL connection (Supabase)
+// ✅ PostgreSQL connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// ✅ Test DB connection
+// ✅ DB connection check
 pool.connect()
   .then(client => {
-    console.log('✅ Connected to Supabase PostgreSQL database successfully');
+    console.log('✅ Connected to Supabase PostgreSQL database');
     client.release();
   })
   .catch(err => {
-    console.error('❌ Error connecting to Supabase PostgreSQL:', err.message);
+    console.error('❌ Database connection error:', err.message);
   });
-
 
 // ✅ LOGIN route
 app.post('/api/login', async (req, res) => {
@@ -59,15 +69,10 @@ app.post('/api/login', async (req, res) => {
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     const user = result.rows[0];
 
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid username or password' });
-    }
+    if (!user) return res.status(401).json({ message: 'Invalid username or password' });
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid username or password' });
-    }
+    if (!isMatch) return res.status(401).json({ message: 'Invalid username or password' });
 
     res.json({
       user: {
@@ -107,7 +112,7 @@ app.post('/api/bookings', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('Booking creation error:', err.message);
-    res.status(500).json({ message: 'Booking creation failed. Please try again.' });
+    res.status(500).json({ message: 'Booking creation failed' });
   }
 });
 
@@ -118,7 +123,7 @@ app.get('/api/bookings', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error('Fetch bookings error:', err.message);
-    res.status(500).json({ message: 'Failed to fetch bookings.' });
+    res.status(500).json({ message: 'Failed to fetch bookings' });
   }
 });
 
@@ -127,13 +132,11 @@ app.get('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Booking not found' });
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Fetch booking error:', err.message);
-    res.status(500).json({ message: 'Failed to fetch booking.' });
+    res.status(500).json({ message: 'Failed to fetch booking' });
   }
 });
 
@@ -169,44 +172,35 @@ app.put('/api/bookings/:id', async (req, res) => {
     ];
 
     const result = await pool.query(query, values);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Booking not found' });
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Update booking error:', err.message);
-    res.status(500).json({ message: 'Failed to update booking.' });
+    res.status(500).json({ message: 'Failed to update booking' });
   }
 });
 
 // ✅ DELETE booking
 app.delete('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
-
   try {
     const result = await pool.query('DELETE FROM bookings WHERE id = $1 RETURNING *', [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Booking not found' });
     res.json({ message: 'Booking deleted successfully' });
   } catch (err) {
     console.error('Delete booking error:', err.message);
-    res.status(500).json({ message: 'Failed to delete booking.' });
+    res.status(500).json({ message: 'Failed to delete booking' });
   }
 });
 
-// ✅ GET all users
+// ✅ READ all users
 app.get('/api/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     console.error('Fetch users error:', err.message);
-    res.status(500).json({ message: 'Failed to fetch users.' });
+    res.status(500).json({ message: 'Failed to fetch users' });
   }
 });
 
@@ -214,13 +208,13 @@ app.get('/api/users', async (req, res) => {
 app.post('/api/users', async (req, res) => {
   const { username, password, role } = req.body;
   if (!username || !password || !role) {
-    return res.status(400).json({ message: 'Username, password, and role are required.' });
+    return res.status(400).json({ message: 'Username, password, and role are required' });
   }
 
   try {
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
     if (existing.rows.length > 0) {
-      return res.status(409).json({ message: 'Username already exists.' });
+      return res.status(409).json({ message: 'Username already exists' });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -232,7 +226,7 @@ app.post('/api/users', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('Create user error:', err.message);
-    res.status(500).json({ message: 'Failed to create user.' });
+    res.status(500).json({ message: 'Failed to create user' });
   }
 });
 
@@ -242,18 +236,16 @@ app.put('/api/users/:id', async (req, res) => {
   const { username, password, role } = req.body;
 
   if (!username || !role) {
-    return res.status(400).json({ message: 'Username and role are required.' });
+    return res.status(400).json({ message: 'Username and role are required' });
   }
 
   try {
     const existingUser = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-    if (existingUser.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (existingUser.rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
     const usernameTaken = await pool.query('SELECT id FROM users WHERE username = $1 AND id != $2', [username, id]);
     if (usernameTaken.rows.length > 0) {
-      return res.status(409).json({ message: 'Username already taken by another user.' });
+      return res.status(409).json({ message: 'Username already taken by another user' });
     }
 
     let password_hash = existingUser.rows[0].password_hash;
@@ -269,7 +261,7 @@ app.put('/api/users/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Update user error:', err.message);
-    res.status(500).json({ message: 'Failed to update user.' });
+    res.status(500).json({ message: 'Failed to update user' });
   }
 });
 
@@ -279,19 +271,15 @@ app.delete('/api/users/:id', async (req, res) => {
 
   try {
     const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
+    if (result.rows.length === 0) return res.status(404).json({ message: 'User not found' });
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     console.error('Delete user error:', err.message);
-    res.status(500).json({ message: 'Failed to delete user.' });
+    res.status(500).json({ message: 'Failed to delete user' });
   }
 });
 
 // ✅ Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
