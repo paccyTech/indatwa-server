@@ -28,10 +28,7 @@ app.use(cors({
   credentials: true
 }));
 
-// ✅ Handle preflight OPTIONS requests
-app.options('*', cors());
 
-app.use(express.json());
 
 // ✅ Connect to PostgreSQL
 const pool = new Pool({
