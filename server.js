@@ -8,7 +8,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ✅ Set your frontend origin
-const allowedOrigins = ['https://indatwa-cient.vercel.app'];
+const allowedOrigins = [
+  'https://indatwa-cient.vercel.app',
+  'https://indatwaevents.com',
+  'https://www.indatwaevents.com'
+];
+
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -281,6 +286,7 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
